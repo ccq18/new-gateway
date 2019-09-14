@@ -1,0 +1,15 @@
+{
+    "name"  : "workerman/workerman-chat",
+    "type"  : "project",
+    "keywords": ["chat"],
+    "homepage": "http://www.workerman.net",
+    "license" : "MIT",
+    "require": {
+        "workerman/workerman": "^3.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "GatewayWorker\\": "src/"
+        }
+    }
+}
