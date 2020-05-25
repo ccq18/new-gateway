@@ -375,7 +375,7 @@ class Gateway extends Worker
             $worker_connection = call_user_func($this->router, $this->_workerConnections, $connection, $cmd, $body);
             if (false === $worker_connection->send($gateway_data)) {
                 $msg = "SendBufferToWorker fail. May be the send buffer are overflow. See http://doc2.workerman.net/send-buffer-overflow.html";
-                static::log($msg);
+                WorkerHelper::log($msg);
                 return false;
             }
         } // 没有可用的 worker
@@ -385,43 +385,12 @@ class Gateway extends Worker
             $time_diff = 2;
             if (time() - $this->_startTime >= $time_diff) {
                 $msg = 'SendBufferToWorker fail. The connections between Gateway and BusinessWorker are not ready. See http://doc2.workerman.net/send-buffer-to-worker-fail.html';
-                static::log($msg);
+                WorkerHelper::log($msg);
             }
             $connection->destroy();
             return false;
         }
         return true;
-    }
-
-    /**
-     * 随机路由，返回 worker connection 对象
-     *
-     * @param array         $worker_connections
-     * @param TcpConnection $client_connection
-     * @param int           $cmd
-     * @param mixed         $buffer
-     * @return TcpConnection
-     */
-    public static function routerRand($worker_connections, $client_connection, $cmd, $buffer)
-    {
-        return $worker_connections[array_rand($worker_connections)];
-    }
-
-    /**
-     * client_id 与 worker 绑定
-     *
-     * @param array         $worker_connections
-     * @param TcpConnection $client_connection
-     * @param int           $cmd
-     * @param mixed         $buffer
-     * @return TcpConnection
-     */
-    public static function routerBind($worker_connections, $client_connection, $cmd, $buffer)
-    {
-        if (!isset($client_connection->businessworker_address) || !isset($worker_connections[$client_connection->businessworker_address])) {
-            $client_connection->businessworker_address = array_rand($worker_connections);
-        }
-        return $worker_connections[$client_connection->businessworker_address];
     }
 
     /**
@@ -529,7 +498,7 @@ class Gateway extends Worker
     {
         $cmd = $data['cmd'];
         if (empty($connection->authorized) && $cmd !== GatewayProtocol::CMD_WORKER_CONNECT && $cmd !== GatewayProtocol::CMD_GATEWAY_CLIENT_CONNECT) {
-            self::log("Unauthorized request from " . $connection->getRemoteIp() . ":" . $connection->getRemotePort());
+            WorkerHelper::log("Unauthorized request from " . $connection->getRemoteIp() . ":" . $connection->getRemotePort());
             $connection->close();
             return;
         }
@@ -538,14 +507,14 @@ class Gateway extends Worker
             case GatewayProtocol::CMD_WORKER_CONNECT:
                 $worker_info = json_decode($data['body'], true);
                 if ($worker_info['secret_key'] !== $this->secretKey) {
-                    self::log("Gateway: Worker key does not match ".var_export($this->secretKey, true)." !== ". var_export($this->secretKey));
+                    WorkerHelper::log("Gateway: Worker key does not match " . var_export($this->secretKey, true) . " !== " . var_export($this->secretKey));
                     $connection->close();
                     return;
                 }
                 $key = $connection->getRemoteIp() . ':' . $worker_info['worker_key'];
                 // 在一台服务器上businessWorker->name不能相同
                 if (isset($this->_workerConnections[$key])) {
-                    self::log("Gateway: Worker->name conflict. Key:{$key}");
+                    WorkerHelper::log("Gateway: Worker->name conflict. Key:{$key}");
 		            $connection->close();
                     return;
                 }
@@ -557,7 +526,7 @@ class Gateway extends Worker
             case GatewayProtocol::CMD_GATEWAY_CLIENT_CONNECT:
                 $worker_info = json_decode($data['body'], true);
                 if ($worker_info['secret_key'] !== $this->secretKey) {
-                    self::log("Gateway: GatewayClient key does not match ".var_export($this->secretKey, true)." !== ".var_export($this->secretKey, true));
+                    WorkerHelper::log("Gateway: GatewayClient key does not match " . var_export($this->secretKey, true) . " !== " . var_export($this->secretKey, true));
                     $connection->close();
                     return;
                 }
@@ -1007,13 +976,4 @@ class Gateway extends Worker
         }
     }
 
-    /**
-     * Log.
-     * @param string $msg
-     */
-    public static function log($msg){
-        Timer::add(1, function() use ($msg) {
-            Worker::log($msg);
-        }, null, false);
-    }
 }

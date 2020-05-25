@@ -46,7 +46,7 @@ request:
 }
 ```
 
-## reponses:
+ reponses:
 ### broadcast_addresses 广播通知内部地址
 变更和连接时 广播所有gateway
 request:

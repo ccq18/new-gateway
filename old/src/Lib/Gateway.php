@@ -222,7 +222,7 @@ class Gateway
         $status_data      = array();
         $all_buffer_array = static::getBufferFromAllGateway($gateway_data);
         foreach ($all_buffer_array as $local_ip => $buffer_array) {
-            foreach ($buffer_array as $local_port => $data) {//所有客户端
+            foreach ($buffer_array as $local_port => $data) {
                 if ($data) {
                     foreach ($data as $connection_id => $session_buffer) {
                         $client_id = Context::addressToClientId($local_ip, $local_port, $connection_id);
@@ -799,7 +799,7 @@ class Gateway
     /**
      * 踢掉某个客户端，并以$message通知被踢掉客户端
      *
-     * @param int $client_id
+     * @param string $client_id
      * @param string $message
      * @return void
      */
@@ -1315,8 +1315,8 @@ class Gateway
         if(empty($addresses_cache) || $time_now - $last_update > $expiration_time) {
             foreach ($register_addresses as $register_address) {
                 $client = stream_socket_client('tcp://' . $register_address, $errno, $errmsg, static::$connectTimeout);
-                if (!$client) {
-                    continue;
+                if ($client) {
+                    break;
                 }
             }
             if (!$client) {

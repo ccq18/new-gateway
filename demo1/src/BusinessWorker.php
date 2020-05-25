@@ -49,7 +49,7 @@ class BusinessWorker extends Worker
      *
      * @var string
      */
-    public $eventHandler = 'Events';
+    public $eventHandler = \Events::class;
 
     /**
      * 业务超时时间，可用来定位程序卡在哪里
@@ -176,8 +176,9 @@ class BusinessWorker extends Worker
      * @param string $socket_name
      * @param array  $context_option
      */
-    public function __construct($socket_name = '', $context_option = array())
+    public function __construct($eventHandler,$socket_name = '', $context_option = array())
     {
+        $this->eventHandler = $eventHandler;
         parent::__construct($socket_name, $context_option);
         $backrace                = debug_backtrace();
         $this->_autoloadRootPath = dirname($backrace[0]['file']);

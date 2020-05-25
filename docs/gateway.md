@@ -16,6 +16,8 @@ _clientConnections 保存了当前gateway的所有客户端连接
 session 保存在当前客户端连接的 session属性中
 
 _groupConnections  [group_id=>[connection_id=>Connection]]
+
+_uidConnections   [uid=>[connection_id=>Connection]] 
 向组发消息->所有gateway->对应组id的所有成员发送消息
 ## 获取所有session
 取得所有gateway地址
@@ -23,3 +25,6 @@ _groupConnections  [group_id=>[connection_id=>Connection]]
 
 
 ## 每个Gateway进程会监听一个Gateway协议的端口 用来处理worker进程的请求
+
+性能问题
+sendToUid sendToGroup  ungroup sendToAll 需要所有gateway

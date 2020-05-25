@@ -345,7 +345,111 @@ class BusinessWorker extends Worker
         }
     }
 
+    /**
+     * 当 gateway 转发来数据时
+     *
+     * @param TcpConnection $connection
+     * @param mixed         $data
+     */
+    public function onGatewayMessage($connection, $data)
+    {
+        $cmd = $data['cmd'];
+        if ($cmd === GatewayProtocol::CMD_PING) {
+            return;
+        }
+        // 上下文数据
+        Context::$client_ip     = $data['client_ip'];
+        Context::$client_port   = $data['client_port'];
+        Context::$local_ip      = $data['local_ip'];
+        Context::$local_port    = $data['local_port'];
+        Context::$connection_id = $data['connection_id'];
+        Context::$client_id     = Context::addressToClientId($data['local_ip'], $data['local_port'],
+            $data['connection_id']);
+        // $_SERVER 变量
+        $_SERVER = array(
+            'REMOTE_ADDR'       => long2ip($data['client_ip']),
+            'REMOTE_PORT'       => $data['client_port'],
+            'GATEWAY_ADDR'      => long2ip($data['local_ip']),
+            'GATEWAY_PORT'      => $data['gateway_port'],
+            'GATEWAY_CLIENT_ID' => Context::$client_id,
+        );
+        // 检查session版本，如果是过期的session数据则拉取最新的数据
+        if ($cmd !== GatewayProtocol::CMD_ON_CLOSE && isset($this->_sessionVersion[Context::$client_id]) && $this->_sessionVersion[Context::$client_id] !== crc32($data['ext_data'])) {
+            $_SESSION = Context::$old_session = \GatewayWorker\Lib\Gateway::getSession(Context::$client_id);
+            $this->_sessionVersion[Context::$client_id] = crc32($data['ext_data']);
+        } else {
+            if (!isset($this->_sessionVersion[Context::$client_id])) {
+                $this->_sessionVersion[Context::$client_id] = crc32($data['ext_data']);
+            }
+            // 尝试解析 session
+            if ($data['ext_data'] != '') {
+                Context::$old_session = $_SESSION = Context::sessionDecode($data['ext_data']);
+            } else {
+                Context::$old_session = $_SESSION = null;
+            }
+        }
 
+        if ($this->processTimeout) {
+            pcntl_alarm($this->processTimeout);
+        }
+        // 尝试执行 Event::onConnection、Event::onMessage、Event::onClose
+        switch ($cmd) {
+            case GatewayProtocol::CMD_ON_CONNECT:
+                if ($this->_eventOnConnect) {
+                    call_user_func($this->_eventOnConnect, Context::$client_id);
+                }
+                break;
+            case GatewayProtocol::CMD_ON_MESSAGE:
+                if ($this->_eventOnMessage) {
+                    call_user_func($this->_eventOnMessage, Context::$client_id, $data['body']);
+                }
+                break;
+            case GatewayProtocol::CMD_ON_CLOSE:
+                unset($this->_sessionVersion[Context::$client_id]);
+                if ($this->_eventOnClose) {
+                    call_user_func($this->_eventOnClose, Context::$client_id);
+                }
+                break;
+            case GatewayProtocol::CMD_ON_WEBSOCKET_CONNECT:
+                if ($this->_eventOnWebSocketConnect) {
+                    call_user_func($this->_eventOnWebSocketConnect, Context::$client_id, $data['body']);
+                }
+                break;
+        }
+        if ($this->processTimeout) {
+            pcntl_alarm(0);
+        }
+        
+        // session 必须是数组
+        if ($_SESSION !== null && !is_array($_SESSION)) {
+            throw new \Exception('$_SESSION must be an array. But $_SESSION=' . var_export($_SESSION, true) . ' is not array.');
+        }
+
+        // 判断 session 是否被更改
+        if ($_SESSION !== Context::$old_session && $cmd !== GatewayProtocol::CMD_ON_CLOSE) {
+            $session_str_now = $_SESSION !== null ? Context::sessionEncode($_SESSION) : '';
+            \GatewayWorker\Lib\Gateway::setSocketSession(Context::$client_id, $session_str_now);
+            $this->_sessionVersion[Context::$client_id] = crc32($session_str_now);
+        }
+
+        Context::clear();
+    }
+
+    /**
+     * 当与 Gateway 的连接断开时触发
+     *
+     * @param TcpConnection $connection
+     * @return  void
+     */
+    public function onGatewayClose($connection)
+    {
+        $addr = $connection->remoteAddress;
+        unset($this->gatewayConnections[$addr], $this->_connectingGatewayAddresses[$addr]);
+        if (isset($this->_gatewayAddresses[$addr]) && !isset($this->_waitingConnectGatewayAddresses[$addr])) {
+            Timer::add(1, array($this, 'tryToConnectGateway'), array($addr), false);
+            $this->_waitingConnectGatewayAddresses[$addr] = $addr;
+        }
+    }
 
     /**
      * 尝试连接 Gateway 内部通讯地址
@@ -393,111 +497,6 @@ class BusinessWorker extends Worker
             if (!isset($this->_waitingConnectGatewayAddresses[$addr])) {
                 $this->tryToConnectGateway($addr);
             }
-        }
-    }
-
-    /**
-     * 当 gateway 转发来数据时
-     *
-     * @param TcpConnection $connection
-     * @param mixed         $data
-     */
-    public function onGatewayMessage($connection, $data)
-    {
-        $cmd = $data['cmd'];
-        if ($cmd === GatewayProtocol::CMD_PING) {
-            return;
-        }
-        // 上下文数据
-        Context::$client_ip     = $data['client_ip'];
-        Context::$client_port   = $data['client_port'];
-        Context::$local_ip      = $data['local_ip'];
-        Context::$local_port    = $data['local_port'];
-        Context::$connection_id = $data['connection_id'];
-        Context::$client_id     = Context::addressToClientId($data['local_ip'], $data['local_port'],
-            $data['connection_id']);
-        // $_SERVER 变量
-        $_SERVER = array(
-            'REMOTE_ADDR'       => long2ip($data['client_ip']),
-            'REMOTE_PORT'       => $data['client_port'],
-            'GATEWAY_ADDR'      => long2ip($data['local_ip']),
-            'GATEWAY_PORT'      => $data['gateway_port'],
-            'GATEWAY_CLIENT_ID' => Context::$client_id,
-        );
-        // 检查session版本，如果是过期的session数据则拉取最新的数据
-        if ($cmd !== GatewayProtocol::CMD_ON_CLOSE && isset($this->_sessionVersion[Context::$client_id]) && $this->_sessionVersion[Context::$client_id] !== crc32($data['ext_data'])) {
-            $_SESSION = Context::$old_session = \GatewayWorker\Lib\Gateway::getSession(Context::$client_id);
-        } else {
-            if (!isset($this->_sessionVersion[Context::$client_id])) {
-                $this->_sessionVersion[Context::$client_id] = crc32($data['ext_data']);
-            }
-            // 尝试解析 session
-            if ($data['ext_data'] != '') {
-                Context::$old_session = $_SESSION = Context::sessionDecode($data['ext_data']);
-            } else {
-                Context::$old_session = $_SESSION = null;
-            }
-        }
-
-        if ($this->processTimeout) {
-            pcntl_alarm($this->processTimeout);
-        }
-        // 尝试执行 Event::onConnection、Event::onMessage、Event::onClose
-        switch ($cmd) {
-            case GatewayProtocol::CMD_ON_CONNECT:
-                if ($this->_eventOnConnect) {
-                    call_user_func($this->_eventOnConnect, Context::$client_id);
-                }
-                break;
-            case GatewayProtocol::CMD_ON_MESSAGE:
-                if ($this->_eventOnMessage) {
-                    call_user_func($this->_eventOnMessage, Context::$client_id, $data['body']);
-                }
-                break;
-            case GatewayProtocol::CMD_ON_CLOSE:
-                unset($this->_sessionVersion[Context::$client_id]);
-                if ($this->_eventOnClose) {
-                    call_user_func($this->_eventOnClose, Context::$client_id);
-                }
-                break;
-            case GatewayProtocol::CMD_ON_WEBSOCKET_CONNECT:
-                if ($this->_eventOnWebSocketConnect) {
-                    call_user_func($this->_eventOnWebSocketConnect, Context::$client_id, $data['body']);
-                }
-                break;
-        }
-        if ($this->processTimeout) {
-            pcntl_alarm(0);
-        }
-
-        // session 必须是数组
-        if ($_SESSION !== null && !is_array($_SESSION)) {
-            throw new \Exception('$_SESSION must be an array. But $_SESSION=' . var_export($_SESSION, true) . ' is not array.');
-        }
-
-        // 判断 session 是否被更改
-        if ($_SESSION !== Context::$old_session && $cmd !== GatewayProtocol::CMD_ON_CLOSE) {
-            $session_str_now = $_SESSION !== null ? Context::sessionEncode($_SESSION) : '';
-            \GatewayWorker\Lib\Gateway::setSocketSession(Context::$client_id, $session_str_now);
-            $this->_sessionVersion[Context::$client_id] = crc32($session_str_now);
-        }
-
-        Context::clear();
-    }
-
-    /**
-     * 当与 Gateway 的连接断开时触发
-     *
-     * @param TcpConnection $connection
-     * @return  void
-     */
-    public function onGatewayClose($connection)
-    {
-        $addr = $connection->remoteAddress;
-        unset($this->gatewayConnections[$addr], $this->_connectingGatewayAddresses[$addr]);
-        if (isset($this->_gatewayAddresses[$addr]) && !isset($this->_waitingConnectGatewayAddresses[$addr])) {
-            Timer::add(1, array($this, 'tryToConnectGateway'), array($addr), false);
-            $this->_waitingConnectGatewayAddresses[$addr] = $addr;
         }
     }
 
