@@ -1,4 +1,4 @@
-<?php
+<?php 
 /**
  * This file is part of workerman.
  *
@@ -11,20 +11,17 @@
  * @link http://www.workerman.net/
  * @license http://www.opensource.org/licenses/mit-license.php MIT License
  */
-
 use \Workerman\Worker;
 use \GatewayWorker\Register;
 
 require_once __DIR__ . '/autoload.php';
 
-$worker = new Worker('text://0.0.0.0:1236');
-$worker->protocol = '\Workerman\Protocols\Text';
-$worker->reloadable = false;
 // register 服务必须是text协议
-$register = new Register($worker);
-//start_register.php
+$register = new Register('text://0.0.0.0:1236');
+
 // 如果不是在根目录启动，则运行runAll方法
-if (!defined('GLOBAL_START')) {
+if(!defined('GLOBAL_START'))
+{
     Worker::runAll();
 }
 

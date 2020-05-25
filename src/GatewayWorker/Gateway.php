@@ -31,7 +31,7 @@ use GatewayWorker\Protocols\GatewayProtocol;
  * @author walkor<walkor@workerman.net>
  *
  */
-class Gateway extends Worker
+class Gateway extends WorkerAbstract
 {
     /**
      * 版本
@@ -227,54 +227,58 @@ class Gateway extends Worker
      * @var int
      */
     const PERSISTENCE_CONNECTION_PING_INTERVAL = 25;
-
-    /**
-     * 构造函数
-     *
-     * @param string $socket_name
-     * @param array  $context_option
-     */
-    public function __construct($socket_name, $context_option = array())
+    public function __construct(Worker $worker,$registerAddress)
     {
-        parent::__construct($socket_name, $context_option);
-		$this->_gatewayPort = substr(strrchr($socket_name,':'),1);
+        $this->_gatewayPort = substr(strrchr($worker->getSocketName(),':'),1);
         $this->router = array("\\GatewayWorker\\Gateway", 'routerBind');
-
-        $backtrace               = debug_backtrace();
-        $this->_autoloadRootPath = dirname($backtrace[0]['file']);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function run()
-    {
-        // 保存用户的回调，当对应的事件发生时触发
-        $this->_onWorkerStart = $this->onWorkerStart;
-        $this->onWorkerStart  = array($this, 'onWorkerStart');
-        // 保存用户的回调，当对应的事件发生时触发
-        $this->_onConnect = $this->onConnect;
-        $this->onConnect  = array($this, 'onClientConnect');
-
-        // onMessage禁止用户设置回调
-        $this->onMessage = array($this, 'onClientMessage');
-
-        // 保存用户的回调，当对应的事件发生时触发
-        $this->_onClose = $this->onClose;
-        $this->onClose  = array($this, 'onClientClose');
-        // 保存用户的回调，当对应的事件发生时触发
-        $this->_onWorkerStop = $this->onWorkerStop;
-        $this->onWorkerStop  = array($this, 'onWorkerStop');
-
         if (!is_array($this->registerAddress)) {
             $this->registerAddress = array($this->registerAddress);
         }
-
         // 记录进程启动的时间
         $this->_startTime = time();
-        // 运行父方法
-        parent::run();
+        parent::__construct($worker);
+
     }
+//    /**
+//     * 构造函数
+//     *
+//     * @param string $socket_name
+//     * @param array  $context_option
+//     */
+//    public function __construct($socket_name, $context_option = array())
+//    {
+//        parent::__construct($socket_name, $context_option);
+//
+////        $backtrace               = debug_backtrace();
+////        $this->_autoloadRootPath = dirname($backtrace[0]['file']);
+//    }
+
+//    /**
+//     * {@inheritdoc}
+//     */
+//    public function run()
+//    {
+////        // 保存用户的回调，当对应的事件发生时触发
+//////        $this->_onWorkerStart = $this->onWorkerStart;
+////        $this->onWorkerStart  = array($this, 'onWorkerStart');
+////        // 保存用户的回调，当对应的事件发生时触发
+//////        $this->_onConnect = $this->onConnect;
+////        $this->onConnect  = array($this, 'onClientConnect');
+////
+////        // onMessage禁止用户设置回调
+////        $this->onMessage = array($this, 'onClientMessage');
+////
+////        // 保存用户的回调，当对应的事件发生时触发
+//////        $this->_onClose = $this->onClose;
+////        $this->onClose  = array($this, 'onClientClose');
+////        // 保存用户的回调，当对应的事件发生时触发
+//////        $this->_onWorkerStop = $this->onWorkerStop;
+////        $this->onWorkerStop  = array($this, 'onWorkerStop');
+////
+////
+//        // 运行父方法
+//        parent::run();
+//    }
 
     /**
      * 当客户端发来数据时，转发给worker处理
@@ -282,7 +286,7 @@ class Gateway extends Worker
      * @param TcpConnection $connection
      * @param mixed         $data
      */
-    public function onClientMessage($connection, $data)
+    public function onMessage($connection, $data)
     {
         $connection->pingNotResponseCount = -1;
         $this->sendToWorker(GatewayProtocol::CMD_ON_MESSAGE, $connection, $data);
@@ -294,7 +298,7 @@ class Gateway extends Worker
      *
      * @param TcpConnection $connection
      */
-    public function onClientConnect($connection)
+    public function onConnect($connection)
     {
         $connection->id = self::generateConnectionId();
         // 保存该连接的内部通讯的数据包报头，避免每次重新初始化
@@ -429,7 +433,7 @@ class Gateway extends Worker
      *
      * @param TcpConnection $connection
      */
-    public function onClientClose($connection)
+    public function onClose($connection)
     {
         // 尝试通知 worker，触发 Event::onClose
         $this->sendToWorker(GatewayProtocol::CMD_ON_CLOSE, $connection);
@@ -465,7 +469,7 @@ class Gateway extends Worker
     public function onWorkerStart()
     {
         // 分配一个内部通讯端口
-        $this->lanPort = $this->startPort + $this->id;
+        $this->lanPort = $this->startPort + $this->worker->id;
 
         // 如果有设置心跳，则定时执行
         if ($this->pingInterval > 0) {
@@ -488,7 +492,7 @@ class Gateway extends Worker
 	$this->_innerTcpWorker->name = 'GatewayInnerWorker';
 
         // 重新设置自动加载根目录
-        Autoloader::setRootPath($this->_autoloadRootPath);
+//        Autoloader::setRootPath($this->_autoloadRootPath);
 
         // 设置内部监听的相关回调
         $this->_innerTcpWorker->onMessage = array($this, 'onWorkerMessage');

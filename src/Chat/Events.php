@@ -11,6 +11,7 @@
  * @link http://www.workerman.net/
  * @license http://www.opensource.org/licenses/mit-license.php MIT License
  */
+namespace Chat;
 
 /**
  * 用于检测业务代码死循环或者长时间阻塞等问题
@@ -23,9 +24,12 @@
  * 聊天主逻辑
  * 主要是处理 onMessage onClose 
  */
+
+use  GatewayWorker\Business\BusinessEventInterface;
+use GatewayWorker\BusinessWorker;
 use \GatewayWorker\Lib\Gateway;
 
-class Events
+class Events implements BusinessEventInterface
 {
    
    /**
@@ -138,5 +142,30 @@ class Events
            Gateway::sendToGroup($room_id, json_encode($new_message));
        }
    }
-  
+
+
+    public static function onWorkerStart(BusinessWorker $worker)
+    {
+        // TODO: Implement onWorkerStart() method.
+    }
+
+    public static function onWorkerReload(BusinessWorker $worker)
+    {
+        // TODO: Implement onWorkerReload() method.
+    }
+
+    public static function onWorkerStop(BusinessWorker $worker)
+    {
+        // TODO: Implement onWorkerStop() method.
+    }
+
+    public static function onConnect($client_id)
+    {
+        // TODO: Implement onConnect() method.
+    }
+
+    public static function onWebSocketConnect($client_id, $message)
+    {
+        // TODO: Implement onWebSocketConnect() method.
+    }
 }

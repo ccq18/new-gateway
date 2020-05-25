@@ -11,20 +11,24 @@
  * @link http://www.workerman.net/
  * @license http://www.opensource.org/licenses/mit-license.php MIT License
  */
-
 use \Workerman\Worker;
-use \GatewayWorker\Register;
+use \GatewayWorker\BusinessWorker;
+use \Workerman\Autoloader;
 
 require_once __DIR__ . '/autoload.php';
 
-$worker = new Worker('text://0.0.0.0:1236');
-$worker->protocol = '\Workerman\Protocols\Text';
-$worker->reloadable = false;
-// register 服务必须是text协议
-$register = new Register($worker);
-//start_register.php
+// bussinessWorker 进程
+$worker = new BusinessWorker();
+// worker名称
+$worker->name = 'ChatBusinessWorker';
+// bussinessWorker进程数量
+$worker->count = 4;
+// 服务注册地址
+$worker->registerAddress = '127.0.0.1:1236';
+$worker->eventHandler = \Chat\Events::class;
 // 如果不是在根目录启动，则运行runAll方法
-if (!defined('GLOBAL_START')) {
+if(!defined('GLOBAL_START'))
+{
     Worker::runAll();
 }
 

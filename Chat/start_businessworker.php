@@ -17,18 +17,21 @@ use \Workerman\Autoloader;
 
 require_once __DIR__ . '/autoload.php';
 
-// bussinessWorker 进程
-$worker = new BusinessWorker();
-// worker名称
+
+$worker = new Worker();
+//// worker名称
 $worker->name = 'ChatBusinessWorker';
 // bussinessWorker进程数量
 $worker->count = 4;
-// 服务注册地址
-$worker->registerAddress = '127.0.0.1:1236';
 
-// 如果不是在根目录启动，则运行runAll方法
+$businessWorker = new \GatewayWorker\BusinessWorker($worker,\Chat\Events::class);
+// 服务注册地址
+$businessWorker->registerAddress = '127.0.0.1:1236';
+//$businessWorker->eventHandler = \Chat\Events::class;
+
+//// 如果不是在根目录启动，则运行runAll方法
 if(!defined('GLOBAL_START'))
 {
     Worker::runAll();
 }
-
+//

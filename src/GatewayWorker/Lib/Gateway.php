@@ -14,6 +14,7 @@
 namespace GatewayWorker\Lib;
 
 use Exception;
+use GatewayWorker\BusinessWorker;
 use GatewayWorker\Protocols\GatewayProtocol;
 use Workerman\Connection\TcpConnection;
 
@@ -25,7 +26,7 @@ class Gateway
     /**
      * gateway 实例
      *
-     * @var object
+     * @var BusinessWorker
      */
     protected static $businessWorker = null;
 
@@ -34,7 +35,7 @@ class Gateway
      *
      * @var string|array
      */
-    public static $registerAddress = '127.0.0.1:1236';
+    public static $registerAddress ;
 
     /**
      * 秘钥

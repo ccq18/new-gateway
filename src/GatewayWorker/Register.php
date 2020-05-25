@@ -23,17 +23,17 @@ use Workerman\Lib\Timer;
  * @author walkor<walkor@workerman.net>
  *
  */
-class Register extends Worker
+class Register extends WorkerAbstract
 {
-    /**
-     * {@inheritdoc}
-     */
-    public $name = 'Register';
+//    /**
+//     * {@inheritdoc}
+//     */
+//    public $name = 'Register';
 
-    /**
-     * {@inheritdoc}
-     */
-    public $reloadable = false;
+//    /**
+//     * {@inheritdoc}
+//     */
+//    public $reloadable = false;
     
     /**
      * 秘钥
@@ -62,29 +62,15 @@ class Register extends Worker
      */
     protected $_startTime = 0;
 
-    /**
-     * {@inheritdoc}
-     */
-    public function run()
+
+    public function __construct(Worker $worker)
     {
-        // 设置 onMessage 连接回调
-        $this->onConnect = array($this, 'onConnect');
 
-        // 设置 onMessage 回调
-        $this->onMessage = array($this, 'onMessage');
-
-        // 设置 onClose 回调
-        $this->onClose = array($this, 'onClose');
-
-        // 记录进程启动的时间
+        parent::__construct($worker);
         $this->_startTime = time();
-        
-        // 强制使用text协议
-        $this->protocol = '\Workerman\Protocols\Text';
-        
-        // 运行父方法
-        parent::run();
+
     }
+
 
     /**
      * 设置个定时器，将未及时发送验证的连接关闭
