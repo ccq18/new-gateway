@@ -15,7 +15,7 @@ use \Workerman\Worker;
 use \GatewayWorker\BusinessWorker;
 use \Workerman\Autoloader;
 
-require_once __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/autoload.php';
 
 // bussinessWorker 进程
 $worker = new BusinessWorker();

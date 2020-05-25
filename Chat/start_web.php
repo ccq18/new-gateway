@@ -16,7 +16,7 @@ use Workerman\Protocols\Http\Request;
 use Workerman\Protocols\Http\Response;
 use Workerman\Connection\TcpConnection;
 
-require_once __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/autoload.php';
 
 // WebServer
 $web = new Worker("http://0.0.0.0:55151");
