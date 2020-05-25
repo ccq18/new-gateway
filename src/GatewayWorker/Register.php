@@ -15,6 +15,7 @@ namespace GatewayWorker;
 
 use Workerman\Worker;
 use Workerman\Lib\Timer;
+use Workerman\WorkerAbstract;
 
 /**
  *
@@ -25,16 +26,6 @@ use Workerman\Lib\Timer;
  */
 class Register extends WorkerAbstract
 {
-//    /**
-//     * {@inheritdoc}
-//     */
-//    public $name = 'Register';
-
-//    /**
-//     * {@inheritdoc}
-//     */
-//    public $reloadable = false;
-    
     /**
      * 秘钥
      * @var string

@@ -22,6 +22,7 @@ use Workerman\Lib\Timer;
 use Workerman\Connection\AsyncTcpConnection;
 use GatewayWorker\Protocols\GatewayProtocol;
 use GatewayWorker\Lib\Context;
+use Workerman\WorkerAbstract;
 
 /**
  *
