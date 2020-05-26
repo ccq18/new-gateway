@@ -2,6 +2,7 @@
 
 namespace Workerman;
 /**
+ * @property $protocol
  * @property $name;
  * @property $user;
  * @property $socket;
@@ -98,5 +99,10 @@ class WorkerNew
     public function setUserAndGroup()
     {
         $this->worker->setUserAndGroup();
+    }
+
+    public function log($msg)
+    {
+        $this->worker->log($msg);
     }
 }

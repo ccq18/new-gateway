@@ -9,6 +9,193 @@
     <script type="text/javascript" src="/js/web_socket.js"></script>
     <script type="text/javascript" src="/js/jquery.min.js"></script>
     <script type="text/javascript" src="/js/jquery-sinaEmotion-2.1.0.min.js"></script>
+    <style lang="scss" scoped>
+        .media-box {
+            border: 1px solid #ff0000;
+        }
+        .photo-area {
+            border: 2px solid yellow;
+        }
+    </style>
+
+    <script>
+        // function getUserMedia(constraints) {
+        //
+        //
+        //     if (userMedia()) {
+        //         // var constraints = {
+        //         //     video: true,
+        //         //     audio: false
+        //         // };
+        //         var media = navigator.getUserMedia(constraints, function (stream) {
+        //             var v = document.getElementById('v');
+        //             var url = window.URL || window.webkitURL;
+        //             v.src = url ? url.createObjectURL(stream) : stream;
+        //             v.play();
+        //         }, function (error) {
+        //             console.log("ERROR");
+        //             console.log(error);
+        //         });
+        //     } else {
+        //         media = undefined;
+        //         console.log("不支持");
+        //     }
+        //     return media
+        //
+        // }
+
+
+        function getMedia() {
+            let constraints = {
+                // 要开启 视频 video 可以简单的设置为 true ，也可以设置为对象
+                /**
+                 * video: {
+                 *      width: 摄像头像素宽 1920
+                 *      height: 摄像头像素高 1080
+                 *      分辨率就是 1920*1080
+                 *      width: {
+                 *          max:  强制使用 max指定的宽
+                 *          min:  强制使用 min 指定的宽
+                 *      }
+                 *      height: {
+                 *          max:  强制使用 max指定的高
+                 *          min:  强制使用 min 指定的高
+                 *      }
+                 *      exact: 表示 max == min
+                 *      width: {ideal: 1920} ideal 表示应用最理想值作为像素
+                 *      height: {ideal: 1080}
+                 *
+                 *      facingMode： "user" 使用前置摄像头--移动端需要设置这个属性
+                 *      facingMode: { exact: "environment" }  使用后置摄像头
+                 *
+                 * }
+                 *
+                 */
+                video: { width: 300, height: 300 },
+                audio: true
+            };
+            //获得video摄像头区域
+            let video = document.getElementById("video");
+            video.style.display = "inline-block";
+            //这里介绍新的方法，返回一个 Promise对象
+            // 这个Promise对象返回成功后的回调函数带一个 MediaStream 对象作为其参数
+            // then()是Promise对象里的方法
+            // then()方法是异步执行，当then()前的方法执行完后再执行then()内部的程序
+            // 避免数据没有获取到
+            // console.log(navigator.mediaDevices);
+            let promise = navigator.mediaDevices.getUserMedia(constraints);
+            promise
+                .then(function(MediaStream) {
+                    // console.log(`MediaStream: -->`);
+                    // console.log(MediaStream);
+                    /**
+                     * mediaStream:{
+                            active: true
+                            id: "k6zAanU7ynuXVvHwcfFLGmt5fX2E6OnLReVR"
+                            onactive: null
+                            onaddtrack: null
+                            oninactive: null
+                            onremovetrack: null
+                     * }
+                     *
+                     *
+                     */
+
+                    video.srcObject = MediaStream;
+
+                    // 2种方式调用 load
+                    // 使用 addEventListener("loadedmetadata", (event)=> {...})
+                    // 使用 onloadedmetadata = (event)=> {...}
+                    // 都可以
+                    video.onloadedmetadata = event => {
+                        console.info(event);
+                        console.log("媒体加载完毕");
+                        video.play();
+                    };
+                })
+                .catch(function(err) {
+                    console.log(err.name + ": " + err.message);
+                }); // 总是在最后检查错误
+
+            // 获取到当前用户设备的 所有的媒体设备 【麦克风，摄像机，耳机设备】等
+            navigator.mediaDevices
+                .enumerateDevices()
+                .then(devices => {
+                    console.log(devices);
+                    devices.forEach(function(device) {
+                        console.log(
+                            device.kind +
+                            ": " +
+                            device.label +
+                            " id = " +
+                            device.deviceId
+                        );
+                    });
+                })
+                .catch(err => {
+                    console.log(err.name + ": " + err.message);
+                });
+            navigator.mediaDevices.ondevicechange = () => {};
+        }
+        function drawImage(dataurl) {
+            var ctx = document.getElementById('canvas').getContext('2d');
+            var img = new Image();
+            img.onload = function(){
+                ctx.drawImage(img,0,0);
+            }
+            img.src = dataurl;
+        }
+        $(function () {
+            draw0();
+
+            function draw0() {
+                var ctx = document.getElementById('canvas0').getContext('2d');
+                var img = new Image();
+                img.onload = function(){
+                    ctx.drawImage(img,0,0);
+                    ctx.beginPath();
+                    ctx.moveTo(30,96);
+                    ctx.lineTo(70,66);
+                    ctx.lineTo(103,76);
+                    ctx.lineTo(170,15);
+                    ctx.stroke();
+                }
+                img.src = 'img/workerman-todpole.png';
+            }
+
+            $('#showvideo').click(function () {
+               getMedia()
+            });
+            $('#takephoto').click(function () {
+                let video = document.getElementById("video");
+                let canvas = document.getElementById("canvas0");
+                let ctx = canvas.getContext("2d");
+                ctx.drawImage(video, 0, 0, video.width, video.height);
+                // 从 canvas上获取照片数据-- 将 canvas 转换成 base64
+                this.photo = canvas.toDataURL("image/png")
+            });
+            function takePhoto1(){
+                let video = document.getElementById("video");
+                let canvas = document.getElementById("canvas0");
+                let ctx = canvas.getContext("2d");
+                ctx.drawImage(video, 0, 0, video.width, video.height);
+                // console.log( canvas.toDataURL())
+                // var ctx = document.getElementById('canvas0');
+                var text = "hello";
+                ws.send('{"type":"toall","to_client_id":"all","to_client_name":"all","content":"' + canvas.toDataURL().replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r') + '"}');
+            }
+            $('#toall').click(function () {
+                setInterval(function () {
+                    takePhoto1()
+                },50)
+
+            })
+
+
+
+
+        })
+    </script>
     <script type="text/javascript">
         if (typeof console == "undefined") {
             this.console = {
@@ -52,7 +239,7 @@
 
         // 服务端发来消息时
         function onmessage(e) {
-            console.log(e.data);
+            // console.log(e.data);
             var data = JSON.parse(e.data);
             switch (data['type']) {
                 // 服务端ping客户端
@@ -77,6 +264,12 @@
                 case 'say':
                     //{"type":"say","from_client_id":xxx,"to_client_id":"all/client_id","content":"xxx","time":"xxx"}
                     say(data['from_client_id'], data['from_client_name'], data['content'], data['time']);
+
+                    break;
+                case 'toall':
+                    //{"type":"say","from_client_id":xxx,"to_client_id":"all/client_id","content":"xxx","time":"xxx"}
+                    // $('#msg').html(data['content'])
+                    drawImage(data['content'])
                     break;
                 // 用户退出 更新用户列表
                 case 'logout':
@@ -188,6 +381,27 @@
                 <div class="caption" id="userlist"></div>
             </div>
         </div>
+
+    </div>
+    <div>
+        <button id="toall">广播</button>
+        <button id="takephoto">拍照</button>
+        <input id="showvideo"
+                type="button"
+                title="开启摄像头"
+                value="开启摄像头"
+                class="media-box"
+        />
+        <div id="msg"></div>
+        <video
+                id="video"
+                width="300px"
+                height="300px"
+                autoplay="autoplay"
+                class="photo-area"
+        ></video>
+        <canvas id="canvas0" style="width: 300px;height: 400px;"></canvas>
+        <canvas id="canvas" style="width: 300px;height: 400px;"></canvas>
     </div>
 </div>
 <script type="text/javascript">var _bdhmProtocol = (("https:" == document.location.protocol) ? " https://" : " http://");
@@ -209,7 +423,10 @@
                 return val + "\n";
             });
         }
+
     });
+
 </script>
+
 </body>
 </html>

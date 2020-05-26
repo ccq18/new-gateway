@@ -5,7 +5,7 @@ namespace Workerman;
 
 
 use Workerman\Connection\ConnectionInterface;
-use Workerman\Worker;
+use Workerman\WorkerNew;
 
 /**
  * Class WorkerAbstract

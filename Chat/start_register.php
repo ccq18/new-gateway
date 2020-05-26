@@ -20,9 +20,10 @@ require_once __DIR__ . '/autoload.php';
 $worker = new \Workerman\WorkerNew('text://0.0.0.0:1236');
 $worker->protocol = '\Workerman\Protocols\Text';
 $worker->reloadable = false;
+//$worker->count=10;
 // register 服务必须是text协议
 $register = new Register($worker);
-//start_register.php
+////start_register.php
 // 如果不是在根目录启动，则运行runAll方法
 if (!defined('GLOBAL_START')) {
     Worker::runAll();
