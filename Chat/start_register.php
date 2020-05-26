@@ -17,7 +17,7 @@ use \GatewayWorker\Register;
 
 require_once __DIR__ . '/autoload.php';
 
-$worker = new Worker('text://0.0.0.0:1236');
+$worker = new \Workerman\WorkerNew('text://0.0.0.0:1236');
 $worker->protocol = '\Workerman\Protocols\Text';
 $worker->reloadable = false;
 // register 服务必须是text协议

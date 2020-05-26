@@ -17,19 +17,22 @@ namespace GatewayWorker;
 use GatewayWorker\Business\BusinessEventInterface;
 use GatewayWorker\Business\BusinessRegister;
 use Workerman\Connection\TcpConnection;
-use Workerman\Worker;
+use Workerman\WorkerNew as Worker;
 use Workerman\Lib\Timer;
 use Workerman\Connection\AsyncTcpConnection;
 use GatewayWorker\Protocols\GatewayProtocol;
 use GatewayWorker\Lib\Context;
 use Workerman\WorkerAbstract;
+use Workerman\WorkerNew;
 
 /**
  *
  * BusinessWorker 用于处理Gateway转发来的数据
  *
  * @author walkor<walkor@workerman.net>
- *
+ * $register_connection  text 注册中心，启动时注册一下自己，并接收gateway连接事件，主动连接gateway
+ * $gateway_connection GatewayProtocol 接收gateway发来的用户请求
+
  */
 class BusinessWorker extends WorkerAbstract
 {
@@ -127,7 +130,12 @@ class BusinessWorker extends WorkerAbstract
     const PERSISTENCE_CONNECTION_PING_INTERVAL = 25;
 
 
-    public function __construct(Worker $worker,$eventHandler)
+    /**
+     * BusinessWorker constructor.
+     * @param Worker $worker
+     * @param $eventHandler
+     */
+    public function __construct( $worker,$eventHandler)
     {
         if(!class_exists($eventHandler)  ){
             exit("eventHandler not exist:".$eventHandler);

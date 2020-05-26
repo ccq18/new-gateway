@@ -19,7 +19,7 @@ use Workerman\Connection\TcpConnection;
 require_once __DIR__ . '/autoload.php';
 
 // WebServer
-$web = new Worker("http://0.0.0.0:55151");
+$web = new \Workerman\WorkerNew("http://0.0.0.0:55151");
 // WebServer进程数量
 $web->count = 2;
 

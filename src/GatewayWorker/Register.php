@@ -13,14 +13,15 @@
  */
 namespace GatewayWorker;
 
-use Workerman\Worker;
+use Workerman\WorkerNew as Worker;
 use Workerman\Lib\Timer;
 use Workerman\WorkerAbstract;
+use Workerman\WorkerNew;
 
 /**
  *
  * 注册中心，用于注册 Gateway 和 BusinessWorker
- *
+ * default text
  * @author walkor<walkor@workerman.net>
  *
  */
@@ -53,10 +54,13 @@ class Register extends WorkerAbstract
      */
     protected $_startTime = 0;
 
-
-    public function __construct(Worker $worker)
+    /**
+     * Register constructor.
+     * @param Worker $worker
+     */
+    public function __construct( $worker)
     {
-
+        $worker->name='register';
         parent::__construct($worker);
         $this->_startTime = time();
 

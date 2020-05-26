@@ -7,11 +7,20 @@ namespace Workerman;
 use Workerman\Connection\ConnectionInterface;
 use Workerman\Worker;
 
+/**
+ * Class WorkerAbstract
+ * @package Workerman
+ * 进程启动和停止是主进程控制，所有事件都是子进程中触发的
+ */
 abstract class  WorkerAbstract
 {
     protected $worker;
 
-    public function __construct(Worker $worker)
+    /**
+     * WorkerAbstract constructor.
+     * @param Worker $worker
+     */
+    public function __construct( $worker)
     {
         $this->worker = $worker;
         $worker->onWorkerStart = array($this, 'onWorkerStart');
@@ -25,12 +34,15 @@ abstract class  WorkerAbstract
         $worker->onBufferDrain = array($this, 'onBufferDrain');
 
     }
-
-    public function run()
-    {
-        $this->worker->run();
-    }
-
+// 控制应该交给workerman
+//    public function run()
+//    {
+//        $this->worker->run();
+//    }
+//    public function stop()
+//    {
+//        $this->worker->stop();
+//    }
     public function onWorkerStart()
     {
 

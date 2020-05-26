@@ -17,9 +17,8 @@ use GatewayWorker\Lib\Context;
 
 use Workerman\Connection\TcpConnection;
 
-use Workerman\Worker;
+use Workerman\WorkerNew as Worker;
 use Workerman\Lib\Timer;
-use Workerman\Autoloader;
 use Workerman\Connection\AsyncTcpConnection;
 use GatewayWorker\Protocols\GatewayProtocol;
 use Workerman\WorkerAbstract;
@@ -30,6 +29,10 @@ use Workerman\WorkerAbstract;
  * 用于转发客户端的数据给Worker处理，以及转发Worker的数据给客户端
  *
  * @author walkor<walkor@workerman.net>
+ *
+ * _innerTcpWorker GatewayProtocol 接收worker消息
+ * $register_connection  text 注册中心，启动时注册一下自己
+ * default Websocket 接收用户消息
  *
  */
 class Gateway extends WorkerAbstract
@@ -69,13 +72,6 @@ class Gateway extends WorkerAbstract
      * @var string|array
      */
     public $registerAddress = '127.0.0.1:1236';
-
-    /**
-     * 是否可以平滑重启，gateway 不能平滑重启，否则会导致连接断开
-     *
-     * @var bool
-     */
-    public $reloadable = false;
 
     /**
      * 心跳时间间隔
@@ -228,7 +224,13 @@ class Gateway extends WorkerAbstract
      * @var int
      */
     const PERSISTENCE_CONNECTION_PING_INTERVAL = 25;
-    public function __construct(Worker $worker,$registerAddress)
+
+    /**
+     * Gateway constructor.
+     * @param Worker  $worker
+     * @param $registerAddress
+     */
+    public function __construct( $worker,$registerAddress)
     {
         $this->_gatewayPort = substr(strrchr($worker->getSocketName(),':'),1);
         $this->router = array("\\GatewayWorker\\Gateway", 'routerBind');
@@ -280,6 +282,97 @@ class Gateway extends WorkerAbstract
 //        // 运行父方法
 //        parent::run();
 //    }
+
+    /**
+     * 当 gateway 关闭时触发，清理数据
+     *
+     * @return void
+     */
+    public function onWorkerStop()
+    {
+        // 尝试触发用户设置的回调
+        if ($this->_onWorkerStop) {
+            call_user_func($this->_onWorkerStop, $this);
+        }
+    }
+
+
+    /**
+     * 当客户端关闭时
+     *
+     * @param TcpConnection $connection
+     */
+    public function onClose($connection)
+    {
+        // 尝试通知 worker，触发 Event::onClose
+        $this->sendToWorker(GatewayProtocol::CMD_ON_CLOSE, $connection);
+        unset($this->_clientConnections[$connection->id]);
+        // 清理 uid 数据
+        if (!empty($connection->uid)) {
+            $uid = $connection->uid;
+            unset($this->_uidConnections[$uid][$connection->id]);
+            if (empty($this->_uidConnections[$uid])) {
+                unset($this->_uidConnections[$uid]);
+            }
+        }
+        // 清理 group 数据
+        if (!empty($connection->groups)) {
+            foreach ($connection->groups as $group) {
+                unset($this->_groupConnections[$group][$connection->id]);
+                if (empty($this->_groupConnections[$group])) {
+                    unset($this->_groupConnections[$group]);
+                }
+            }
+        }
+        // 触发 onClose
+        if ($this->_onClose) {
+            call_user_func($this->_onClose, $connection);
+        }
+    }
+
+    /**
+     * 当 Gateway 启动的时候触发的回调函数
+     *
+     * @return void
+     */
+    public function onWorkerStart()
+    {
+        // 分配一个内部通讯端口
+        $this->lanPort = $this->startPort + $this->worker->id;
+
+        // 如果有设置心跳，则定时执行
+        if ($this->pingInterval > 0) {
+            $timer_interval = $this->pingNotResponseLimit > 0 ? $this->pingInterval / 2 : $this->pingInterval;
+            Timer::add($timer_interval, array($this, 'ping'));
+        }
+
+        // 如果BusinessWorker ip不是127.0.0.1，则需要加gateway到BusinessWorker的心跳
+        if ($this->lanIp !== '127.0.0.1') {
+            Timer::add(self::PERSISTENCE_CONNECTION_PING_INTERVAL, array($this, 'pingBusinessWorker'));
+        }
+
+        if (!class_exists('\Protocols\GatewayProtocol')) {
+            class_alias('GatewayWorker\Protocols\GatewayProtocol', 'Protocols\GatewayProtocol');
+        }
+
+        // 初始化 gateway 内部的监听，用于监听 worker 的连接已经连接上发来的数据
+        $this->_innerTcpWorker = new Worker("GatewayProtocol://{$this->lanIp}:{$this->lanPort}");
+        $this->_innerTcpWorker->listen();
+        $this->_innerTcpWorker->name = 'GatewayInnerWorker';
+
+
+        // 设置内部监听的相关回调
+        $this->_innerTcpWorker->onMessage = array($this, 'onWorkerMessage');
+        $this->_innerTcpWorker->onConnect = array($this, 'onWorkerConnect');
+        $this->_innerTcpWorker->onClose   = array($this, 'onWorkerClose');
+
+        // 注册 gateway 的内部通讯地址，worker 去连这个地址，以便 gateway 与 worker 之间建立起 TCP 长连接
+        $this->registerAddress();
+
+        if ($this->_onWorkerStart) {
+            call_user_func($this->_onWorkerStart, $this);
+        }
+    }
 
     /**
      * 当客户端发来数据时，转发给worker处理
@@ -429,85 +522,6 @@ class Gateway extends WorkerAbstract
         return $worker_connections[$client_connection->businessworker_address];
     }
 
-    /**
-     * 当客户端关闭时
-     *
-     * @param TcpConnection $connection
-     */
-    public function onClose($connection)
-    {
-        // 尝试通知 worker，触发 Event::onClose
-        $this->sendToWorker(GatewayProtocol::CMD_ON_CLOSE, $connection);
-        unset($this->_clientConnections[$connection->id]);
-        // 清理 uid 数据
-        if (!empty($connection->uid)) {
-            $uid = $connection->uid;
-            unset($this->_uidConnections[$uid][$connection->id]);
-            if (empty($this->_uidConnections[$uid])) {
-                unset($this->_uidConnections[$uid]);
-            }
-        }
-        // 清理 group 数据
-        if (!empty($connection->groups)) {
-            foreach ($connection->groups as $group) {
-                unset($this->_groupConnections[$group][$connection->id]);
-                if (empty($this->_groupConnections[$group])) {
-                    unset($this->_groupConnections[$group]);
-                }
-            }
-        }
-        // 触发 onClose
-        if ($this->_onClose) {
-            call_user_func($this->_onClose, $connection);
-        }
-    }
-
-    /**
-     * 当 Gateway 启动的时候触发的回调函数
-     *
-     * @return void
-     */
-    public function onWorkerStart()
-    {
-        // 分配一个内部通讯端口
-        $this->lanPort = $this->startPort + $this->worker->id;
-
-        // 如果有设置心跳，则定时执行
-        if ($this->pingInterval > 0) {
-            $timer_interval = $this->pingNotResponseLimit > 0 ? $this->pingInterval / 2 : $this->pingInterval;
-            Timer::add($timer_interval, array($this, 'ping'));
-        }
-
-        // 如果BusinessWorker ip不是127.0.0.1，则需要加gateway到BusinessWorker的心跳
-        if ($this->lanIp !== '127.0.0.1') {
-            Timer::add(self::PERSISTENCE_CONNECTION_PING_INTERVAL, array($this, 'pingBusinessWorker'));
-        }
-
-        if (!class_exists('\Protocols\GatewayProtocol')) {
-            class_alias('GatewayWorker\Protocols\GatewayProtocol', 'Protocols\GatewayProtocol');
-        }
-
-        // 初始化 gateway 内部的监听，用于监听 worker 的连接已经连接上发来的数据
-        $this->_innerTcpWorker = new Worker("GatewayProtocol://{$this->lanIp}:{$this->lanPort}");
-        $this->_innerTcpWorker->listen();
-	$this->_innerTcpWorker->name = 'GatewayInnerWorker';
-
-        // 重新设置自动加载根目录
-//        Autoloader::setRootPath($this->_autoloadRootPath);
-
-        // 设置内部监听的相关回调
-        $this->_innerTcpWorker->onMessage = array($this, 'onWorkerMessage');
-
-        $this->_innerTcpWorker->onConnect = array($this, 'onWorkerConnect');
-        $this->_innerTcpWorker->onClose   = array($this, 'onWorkerClose');
-
-        // 注册 gateway 的内部通讯地址，worker 去连这个地址，以便 gateway 与 worker 之间建立起 TCP 长连接
-        $this->registerAddress();
-
-        if ($this->_onWorkerStart) {
-            call_user_func($this->_onWorkerStart, $this);
-        }
-    }
 
 
     /**
@@ -999,18 +1013,6 @@ class Gateway extends WorkerAbstract
         }
     }
 
-    /**
-     * 当 gateway 关闭时触发，清理数据
-     *
-     * @return void
-     */
-    public function onWorkerStop()
-    {
-        // 尝试触发用户设置的回调
-        if ($this->_onWorkerStop) {
-            call_user_func($this->_onWorkerStop, $this);
-        }
-    }
 
     /**
      * Log.

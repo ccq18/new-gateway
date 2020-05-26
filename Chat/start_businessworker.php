@@ -18,7 +18,7 @@ use \Workerman\Autoloader;
 require_once __DIR__ . '/autoload.php';
 
 
-$worker = new Worker();
+$worker = new \Workerman\WorkerNew();
 //// worker名称
 $worker->name = 'ChatBusinessWorker';
 // bussinessWorker进程数量
